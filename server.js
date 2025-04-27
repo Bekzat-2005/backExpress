@@ -3,17 +3,22 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const SECRET_KEY = 'your_secret_key'; 
+const SECRET_KEY = 'your_secret_key';
 
-mongoose.connect('mongodb://localhost:27017/jwtAuth', {
-}).then(() => console.log('MongoDB қосылды'))
+// MongoDB Atlas-қа қосылу
+mongoose.connect('mongodb+srv://baymukach:admin1234@cluster0.cvs8ciq.mongodb.net/jwtAuth?retryWrites=true&w=majority&appName=Cluster0')
+  .then(() => console.log('MongoDB Atlas қосылды'))
   .catch(err => console.log(err));
 
+// ----------------- Сіздің API маршруттары -----------------
+
+// Mongoose User схемасы
 const userSchema = new mongoose.Schema({
   username: String,
   password: String,
@@ -51,7 +56,6 @@ app.post('/login', async (req, res) => {
   res.json({ token });
 });
 
-// ----------- МЫНА ЖАҒЫ НОВЫЙ КРУД -----------------
 // Барлық қолданушыларды алу
 app.get('/users', async (req, res) => {
   const users = await User.find({}, '-password'); // парольді көрсетпей
@@ -65,29 +69,21 @@ app.get('/users/:id', async (req, res) => {
   res.json(user);
 });
 
-// Жаңа қолданушы қосу (админ арқылы)
-// 🔥 ОСЫ ЖАҢА КОД: POST /users арқылы қолданушы қосу
+// Жаңа қолданушы қосу
 app.post('/users', async (req, res) => {
   try {
     const { username, password, role } = req.body;
-
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new User({
-      username,
-      password: hashedPassword,
-      role
-    });
-
+    const newUser = new User({ username, password: hashedPassword, role });
     await newUser.save();
+
     res.status(201).json({ message: "Жаңа қолданушы қосылды" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Қате пайда болды" });
   }
 });
-
-
 
 // Қолданушыны жаңарту
 app.put('/users/:id', async (req, res) => {
@@ -112,6 +108,20 @@ app.delete('/users/:id', async (req, res) => {
 
   res.json({ message: 'User deleted' });
 });
-// ---------------------------------------------------
 
+// ------------------------------------------------------------
+
+// ----------------- ЕҢ СОҢЫНДА Angular Build көрсету -----------------
+
+// Angular-дың build файлын көрсету
+app.use(express.static(path.join(__dirname, 'dist/jwt-auth-client/browser')));
+
+// Барлық басқа сұраныстарды Angular-дың index.html файлына бағыттау
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(__dirname, 'dist/jwt-auth-client/browser', 'index.html'));
+});
+
+// ------------------------------------------------------------
+
+// Серверді іске қосу
 app.listen(3000, () => console.log('Сервер 3000 портта'));
